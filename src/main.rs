@@ -41,10 +41,10 @@ fn format_bech32(public_key_in_hex: &str) -> anyhow::Result<String> {
 }
 
 fn parse_query(query: &str) -> anyhow::Result<(String, String)> {
-    // TODO: support `example.com` => `_@example.com`
+    // TODO: <https://datatracker.ietf.org/doc/html/rfc5322#section-3.4.1>
     let re = Regex::new(r#"^(?:([a-z0-9-_.]+)@)?(.+)$"#)?;
     let matches = re.captures(query).context("not match")?;
-    let local_part = matches.get(1).context("local-part not found")?.as_str();
+    let local_part = matches.get(1).map(|m| m.as_str()).unwrap_or("_");
     let domain = matches.get(2).context("domain not found")?.as_str();
     let url = Url::parse(&format!("https://{domain}"))?;
     let domain = url.domain().context("domain is invalid")?;
@@ -59,4 +59,31 @@ async fn main() -> anyhow::Result<()> {
     let bech32 = format_bech32(&public_key)?;
     println!("{bech32}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_bech32() -> anyhow::Result<()> {
+        assert_eq!(
+            format_bech32("3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d")?,
+            "npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_query() -> anyhow::Result<()> {
+        assert_eq!(
+            parse_query("bob@example.com")?,
+            ("bob".to_owned(), "example.com".to_owned())
+        );
+        assert_eq!(
+            parse_query("example.com")?,
+            ("_".to_owned(), "example.com".to_owned())
+        );
+        Ok(())
+    }
 }
